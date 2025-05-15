@@ -68,7 +68,8 @@ def predict(path_images,
             list_correct_labels=None,
             compute_distances=False,
             recompute=True,
-            verbose=True):
+            verbose=True,
+            checkpoint_function=None):
 
     # prepare input/output filepaths
     outputs = prepare_output_files(path_images, path_segmentations, path_posteriors, path_resampled,
@@ -211,6 +212,10 @@ def predict(path_images,
                     qc_score = np.around(np.clip(np.squeeze(qc_score)[1:], 0, 1), 4)
                     row = [os.path.basename(path_images[i]).replace('.nii.gz', '')] + ['%.4f' % q for q in qc_score]
                     write_csv(path_qc_scores[i], row, unique_qc_file, labels_qc, names_qc)
+                    
+                # update checkpoint if function is provided
+                if checkpoint_function is not None:
+                    checkpoint_function(path_images[i])
 
             except Exception as e:
                 list_errors.append(path_images[i])
@@ -297,6 +302,61 @@ def prepare_output_files(path_images, out_seg, out_posteriors, out_resampled, ou
     assert path_images is not None, 'please specify an input file/folder (--i)'
     assert out_seg is not None, 'please specify an output file/folder (--o)'
 
+    # If path_images is already a list, handle it directly
+    if isinstance(path_images, list):
+        # Make sure all output paths are also lists of the same length
+        assert isinstance(out_seg, list) and len(out_seg) == len(path_images), \
+            'If path_images is a list, path_segmentations must also be a list of the same length'
+        
+        # Convert all paths to absolute paths
+        path_images = [os.path.abspath(p) for p in path_images]
+        out_seg = [os.path.abspath(p) for p in out_seg]
+        
+        if out_posteriors is not None:
+            assert isinstance(out_posteriors, list) and len(out_posteriors) == len(path_images), \
+                'If path_images is a list, path_posteriors must also be a list of the same length or None'
+            out_posteriors = [os.path.abspath(p) if p is not None else None for p in out_posteriors]
+        
+        if out_resampled is not None:
+            assert isinstance(out_resampled, list) and len(out_resampled) == len(path_images), \
+                'If path_images is a list, path_resampled must also be a list of the same length or None'
+            out_resampled = [os.path.abspath(p) if p is not None else None for p in out_resampled]
+        
+        if out_volumes is not None:
+            assert isinstance(out_volumes, list) and len(out_volumes) == len(path_images), \
+                'If path_images is a list, path_volumes must also be a list of the same length or None'
+            out_volumes = [os.path.abspath(p) if p is not None else None for p in out_volumes]
+        
+        if out_qc is not None:
+            assert isinstance(out_qc, list) and len(out_qc) == len(path_images), \
+                'If path_images is a list, path_qc_scores must also be a list of the same length or None'
+            out_qc = [os.path.abspath(p) if p is not None else None for p in out_qc]
+        
+        # Determine if files need to be recomputed
+        recompute_seg = [not os.path.isfile(p) for p in out_seg]
+        recompute_post = [False if p is None else not os.path.isfile(p) for p in out_posteriors] if out_posteriors else [False] * len(path_images)
+        recompute_resampled = [False if p is None else not os.path.isfile(p) for p in out_resampled] if out_resampled else [False] * len(path_images)
+        recompute_volume = [False if p is None else not os.path.isfile(p) for p in out_volumes] if out_volumes else [False] * len(path_images)
+        recompute_qc = [False if p is None else not os.path.isfile(p) for p in out_qc] if out_qc else [False] * len(path_images)
+        
+        # Create any necessary directories
+        for path in out_seg + [p for p in out_posteriors if p] + [p for p in out_resampled if p] + [p for p in out_volumes if p] + [p for p in out_qc if p]:
+            if path:
+                utils.mkdir(os.path.dirname(path))
+        
+        # Set unique_file flags to False for list case
+        unique_volume_file = False
+        unique_qc_file = False
+        
+        # Combine recompute flags
+        recompute_list = [recompute | re_seg | re_post | re_res | re_vol | re_qc
+                          for (re_seg, re_post, re_res, re_vol, re_qc)
+                          in zip(recompute_seg, recompute_post, recompute_resampled, recompute_volume, recompute_qc)]
+        
+        return path_images, out_seg, out_posteriors, out_resampled, out_volumes, unique_volume_file, \
+               out_qc, unique_qc_file, recompute_list
+        
+    # For non-list inputs, continue with original approach
     # convert path to absolute paths
     path_images = os.path.abspath(path_images)
     basename = os.path.basename(path_images)

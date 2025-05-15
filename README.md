@@ -1,7 +1,14 @@
 # SynthSeg
 
+> **Note about this fork**
+>
+> This repository is a fork of [Photo-SynthSeg](https://github.com/MGH-LEMoN/Photo-SynthSeg), which itself is a fork of the original [SynthSeg](https://github.com/BBillot/SynthSeg). This version adds the following enhancements:
+> 
+> 1. **Modern Python and TensorFlow Support**: Compatibility with Python 3.11 and TensorFlow 2.15
+> 2. **CSV-based Batch Processing**: Process multiple images defined in a CSV file with a single command
+> 3. **Checkpointing**: Automatically resume processing from where it left off if interrupted
 
-In this repository, we present SynthSeg, the first deep learning tool for segmentation of brain scans of
+SynthSeg, is the first deep learning tool for segmentation of brain scans of
 any contrast and resolution. SynthSeg works out-of-the-box without any retraining, and is robust to:
 - any contrast
 - any resolution up to 10mm slice spacing
@@ -39,6 +46,10 @@ the GPU (~15s per scan) or on the CPU (~1min).
 ----------------
 
 ### New features and updates
+
+\
+15/05/2025: **Added support for Python 3.11 and TensorFlow 2.15 + CSV processing with checkpointing!** 🚀 \
+This fork now supports modern Python and TensorFlow environments, making it easier to integrate with current machine learning workflows. We've also added a new CSV-based batch processing system with automatic checkpointing to handle large datasets more efficiently. See the [Processing images from a CSV file](#processing-images-from-a-csv-file) section for more details.
 
 \
 01/03/2023: **The papers for SynthSeg and SynthSeg 2.0 are out! :open_book: :open_book:** \
@@ -130,52 +141,62 @@ corresponding values. This table also details the order in which the posteriors 
 
 ----------------
 
+### Processing images from a CSV file
+
+This fork adds a new command for processing images listed in a CSV file with built-in checkpointing, which is especially useful for large datasets:
+
+```bash
+python ./scripts/commands/SynthSeg_dataset.py --csv <csv_file> [--path_column <column_name>] [--checkpoint <checkpoint_file>] [options]
+```
+
+**Required arguments:**
+- `<csv_file>`: Path to a CSV file containing paths to the images that need to be processed
+
+**Optional arguments:**
+- `--path_column <column_name>`: Name of the column in the CSV file that contains image paths (default: "path")
+- `--checkpoint <checkpoint_file>`: Path to store/load checkpoint data (default: "synthseg_checkpoint.json")
+- All standard SynthSeg options are supported (--parc, --robust, --fast, etc.)
+
+**Example usage:**
+```bash
+python ./scripts/commands/SynthSeg_dataset.py --csv my_dataset.csv --path_column image_path --robust --parc --qc --threads 4
+```
+
+**Checkpoint functionality:**
+The script automatically keeps track of processed images and maintains a checkpoint file. If the process is interrupted, you can simply run the same command again, and it will resume from where it left off, skipping already processed images. The checkpoint file is a JSON file containing a list of all processed image paths.
+
+**Output files:**
+For each input image path in the CSV, the script generates:
+- A segmentation file (with suffix "_segm.nii.gz" by default)
+- A volumes CSV file (with suffix "_volumes.csv" by default)
+- Optional posteriors, resampled images, and QC scores based on the provided flags
+
+**Custom suffixes:**
+You can customize the output file suffixes using these options:
+- `--suffix_segm`: Suffix for segmentation outputs (default: "_segm") 
+- `--suffix_vol`: Suffix for volume CSV files (default: "_volumes.csv")
+- `--suffix_post`: Suffix for posterior outputs (default: "_posteriors")
+- `--suffix_resample`: Suffix for resampled outputs (default: "_resampled")
+- `--suffix_qc`: Suffix for QC outputs (default: "_qc.csv")
+
+----------------
+
 ### Installation
 
 1. Clone this repository.
 
-2. Create a virtual environment (i.e., with pip or conda) and install all the required packages. \
-These depend on your python version, and here we list the requirements for Python 3.6 
-([requirements_3.6](requirements_python3.6.txt)) and Python 3.8 (see [requirements_3.8](requirements_python3.8.txt)).
-The choice is yours, but in each case, please stick to the exact package versions.\
-A first solution to install the dependencies, if you use pip, is to run setup.py (with and activated virtual 
-environment): `python setup.py install`. Otherwise, we also give here the minimal commands to install the required 
-packages using pip/conda for Python 3.6/3.8.
+2. Create a virtual environment with Python 3.11 and install the required packages:
 
-```
-# Conda, Python 3.6:
-conda create -n synthseg_36 python=3.6 tensorflow-gpu=2.0.0 keras=2.3.1 h5py==2.10.0 nibabel matplotlib -c anaconda -c conda-forge
-
-# Conda, Python 3.8:
-conda create -n synthseg_38 python=3.8 tensorflow-gpu=2.2.0 keras=2.3.1 nibabel matplotlib -c anaconda -c conda-forge
-
-# Pip, Python 3.6:
-pip install tensorflow-gpu==2.0.0 keras==2.3.1 nibabel==3.2.2 matplotlib==3.3.4
-
-# Pip, Python 3.8:
-pip install tensorflow-gpu==2.2.0 keras==2.3.1 protobuf==3.20.3 numpy==1.23.5 nibabel==5.0.1 matplotlib==3.6.2
+```bash
+# Conda approach using the requirements file
+conda create -n synthseg python=3.11 -y
+conda activate synthseg
+pip install -r requirements.txt
 ```
 
 3. Go to this link [UCL dropbox](https://liveuclac-my.sharepoint.com/:f:/g/personal/rmappmb_ucl_ac_uk/EtlNnulBSUtAvOP6S99KcAIBYzze7jTPsmFk2_iHqKDjEw?e=rBP0RO), and download the missing models. Then simply copy them to [models](models).
 
-4. If you wish to run on the GPU, you will also need to install Cuda (10.0 for Python 3.6, 10.1 for Python 3.8), and 
-CUDNN (7.6.5 for both). Note that if you used conda, these were already automatically installed.
-
-UPDATE:
-If you are interested in running SynthSeg using the most recent compatible version of tensorflow (<=2.15), you may want to run the following steps
-```
-conda create -n ss2.15 python=3.11 -y
-conda activate ss2.15
-pip install --extra-index-url https://pypi.nvidia.com tensorrt_libs
-pip install tensorflow[and-cuda]==2.15 nibabel scipy
-
-# or
-
-conda create -n ss2.15 python=3.11 -y
-conda activate ss2.15
-pip install -r requirements_python3.11.txt
-
-```
+4. CUDA and cuDNN dependencies will be installed automatically with the TensorFlow package. If you encounter GPU-related issues, make sure your NVIDIA drivers are up to date.
 
 That's it ! You're now ready to use SynthSeg ! :tada:
 
@@ -263,6 +284,14 @@ detailed information is provided in the docstrings of all functions, so don't he
   training parameters). This function also shows how to integrate the generative model in a training setting.
   
   - [predict.py](SynthSeg/predict.py): prediction and testing.
+  
+  - [predict_synthseg.py](SynthSeg/predict_synthseg.py): main prediction function used by the command-line scripts.
+
+- [scripts/commands](scripts/commands): contains command-line tools for using SynthSeg:
+
+  - [SynthSeg_predict.py](scripts/commands/SynthSeg_predict.py): main script for segmenting individual images or folders.
+  
+  - [SynthSeg_dataset.py](scripts/commands/SynthSeg_dataset.py): new script for processing images from a CSV file with checkpointing.
    
   - [validate.py](SynthSeg/validate.py): includes code for validation (which has to be done offline on real images).
  
