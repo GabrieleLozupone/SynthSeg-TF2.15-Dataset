@@ -38,6 +38,7 @@ parser.add_argument("--csv", help="Path to the CSV file containing images to pro
 parser.add_argument("--path_column", default="path", help="Column name containing image paths.")
 parser.add_argument("--checkpoint", default="synthseg_checkpoint.json", 
                     help="Path to store/load checkpoint file.")
+parser.add_argument("--gpu_id", default=0, type=int, help="GPU ID to use for processing. Default is 0.")
 parser.add_argument("--parc", action="store_true", help="(optional) Whether to perform cortex parcellation.")
 parser.add_argument("--robust", action="store_true", help="(optional) Whether to use robust predictions (slower).")
 parser.add_argument("--fast", action="store_true", help="(optional) Bypass some postprocessing for faster predictions.")
@@ -161,8 +162,10 @@ print('\n' + version + '\n')
 if args['cpu']:
     print('using CPU, hiding all CUDA_VISIBLE_DEVICES')
     os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
-os.environ['CUDA_DEVICE_ORDER'] = 'PCI_BUS_ID'
-os.environ['CUDA_VISIBLE_DEVICES'] = '0'
+
+if args['gpu_id'] and not args['cpu']:
+    print('using GPU %s' % args['gpu_id'])
+    os.environ['CUDA_VISIBLE_DEVICES'] = str(args['gpu_id'])
 
 # limit the number of threads to be used if running on CPU
 import tensorflow as tf

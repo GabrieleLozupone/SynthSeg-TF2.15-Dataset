@@ -46,6 +46,7 @@ parser.add_argument("--crop", nargs='+', type=int, help="(optional) Size of 3D p
 parser.add_argument("--threads", type=int, default=1, help="(optional) Number of cores to be used. Default is 1.")
 parser.add_argument("--cpu", action="store_true", help="(optional) Enforce running with CPU rather than GPU.")
 parser.add_argument("--v1", action="store_true", help="(optional) Use SynthSeg 1.0 (updated 25/06/22).")
+parser.add_argument("--gpu_id", type=int, default=0, help="(optional) GPU ID to use. Default is 0.")
 
 # check for no arguments
 if len(sys.argv) < 2:
@@ -70,6 +71,11 @@ print('\n' + version + '\n')
 if args['cpu']:
     print('using CPU, hiding all CUDA_VISIBLE_DEVICES')
     os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
+
+# set GPU ID
+if args['gpu_id'] and not args['cpu']:
+    print('using GPU %s' % args['gpu_id'])
+    os.environ['CUDA_VISIBLE_DEVICES'] = str(args['gpu_id'])
 
 # limit the number of threads to be used if running on CPU
 import tensorflow as tf
