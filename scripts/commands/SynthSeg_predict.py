@@ -73,8 +73,9 @@ if args['cpu']:
     os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 
 # set GPU ID
-if args['gpu_id'] and not args['cpu']:
+if args['gpu_id'] is not None and not args['cpu']:
     print('using GPU %s' % args['gpu_id'])
+    os.environ['CUDA_DEVICE_ORDER'] = 'PCI_BUS_ID'
     os.environ['CUDA_VISIBLE_DEVICES'] = str(args['gpu_id'])
 
 # limit the number of threads to be used if running on CPU
